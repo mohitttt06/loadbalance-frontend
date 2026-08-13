@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadBalance — Faculty workload, audited and fixed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0B0F17;
+  --ink-2: #10151F;
+  --paper: #F3EFE4;
+  --paper-dim: #8B8778;
+  --flag: #FF5C77;
+  --flag-dim: #47202B;
+  --teal: #35C99A;
+  --teal-dim: #17332B;
+  --line: rgba(243, 239, 228, 0.07);
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-display: 'Sora', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+html[data-theme="light"] {
+  --ink: #F3EFE4;
+  --ink-2: #EAE4D3;
+  --paper: #14110A;
+  --paper-dim: #6B6555;
+  --flag: #D6455B;
+  --flag-dim: #F7D8DD;
+  --teal: #157A5A;
+  --teal-dim: #C7E8DB;
+  --line: rgba(20, 17, 10, 0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; transition: background 0.4s var(--ease); }
+body {
+  background: var(--ink); color: var(--paper); font-family: var(--font-body); font-weight: 400;
+  min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased;
+}
+.bg-field { position: fixed; inset: 0; pointer-events: none; z-index: 0; background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px); background-size: 34px 34px; }
+.bg-orb { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; opacity: 0.16; }
+.bg-orb.one { width: 46vw; height: 46vw; top: -14vw; right: -10vw; background: var(--teal); animation: drift1 26s ease-in-out infinite; }
+.bg-orb.two { width: 38vw; height: 38vw; bottom: -12vw; left: -8vw; background: var(--flag); opacity: 0.10; animation: drift2 32s ease-in-out infinite; }
+@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-3vw, 4vw); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(4vw, -3vw); } }
+.spotlight { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 50%), rgba(53, 201, 154, 0.08), transparent 60%); z-index: 0; }
+nav { position: fixed; top: 0; left: 0; right: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 1.4rem 5vw; backdrop-filter: blur(10px); background: color-mix(in srgb, var(--ink) 78%, transparent); border-bottom: 1px solid var(--line); }
+.logo { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; }
+.logo span { color: var(--teal); font-weight: 400; }
+.nav-links { display: flex; gap: 2.2rem; font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper-dim); }
+.nav-links a { color: inherit; text-decoration: none; transition: color 0.25s var(--ease); }
+.nav-links a:hover { color: var(--paper); }
+.nav-right { display: flex; align-items: center; gap: 1rem; }
+.theme-toggle { background: transparent; border: 1px solid var(--line); color: var(--paper); font-family: var(--font-mono); font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 0.85rem; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: border-color 0.25s var(--ease); }
+.theme-toggle:hover { border-color: var(--paper-dim); }
+.theme-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px 0 var(--teal); transition: background 0.3s var(--ease), box-shadow 0.3s var(--ease); }
+.nav-signin { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper); text-decoration: none; border: 1px solid var(--line); padding: 0.5rem 0.9rem; border-radius: 2px; transition: border-color 0.25s var(--ease), background 0.25s var(--ease); }
+.nav-signin:hover { border-color: var(--teal); background: var(--teal-dim); }
+@media (max-width: 780px) { .nav-links { display: none; } }
+.hero { position: relative; min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; padding-top: 4.5rem; }
+.copy { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; padding: 4vw 4vw 4vw 6vw; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.3rem, 4.4vw, 4.2rem); line-height: 1.04; letter-spacing: -0.03em; margin-bottom: 1.5rem; opacity: 0; animation: fadeUp 0.9s var(--ease) forwards; animation-delay: 0.15s; }
+h1 .word { display: inline-block; transition: color 0.25s var(--ease), transform 0.25s var(--ease); }
+h1 .word:hover { color: var(--teal); transform: translateY(-3px); }
+h1 em { font-style: normal; font-weight: 400; color: var(--teal); }
+.sub { font-family: var(--font-body); font-weight: 300; font-size: clamp(1rem, 1.15vw, 1.15rem); color: var(--paper-dim); max-width: 42ch; line-height: 1.75; opacity: 0; animation: fadeUp 0.9s var(--ease) forwards; animation-delay: 0.32s; }
+.sub strong { color: var(--paper); font-weight: 500; }
+.cta-row { display: flex; gap: 1rem; margin-top: 2.2rem; opacity: 0; animation: fadeUp 0.9s var(--ease) forwards; animation-delay: 0.48s; }
+.btn-primary { background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.9rem 1.6rem; border: none; border-radius: 2px; cursor: pointer; transition: transform 0.25s var(--ease), background 0.25s var(--ease); text-decoration: none; display: inline-flex; align-items: center; }
+.btn-primary:hover { transform: translateY(-2px); background: var(--teal); color: var(--ink); }
+.btn-ghost { background: transparent; color: var(--paper); font-family: var(--font-mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.9rem 1.3rem; border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: border-color 0.25s var(--ease); text-decoration: none; display: inline-flex; align-items: center; }
+.btn-ghost:hover { border-color: var(--paper-dim); }
+.hint { margin-top: 3rem; font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.06em; color: var(--paper-dim); opacity: 0; animation: fadeUp 0.9s var(--ease) forwards; animation-delay: 0.65s; display: flex; align-items: center; gap: 8px; }
+.hint::before { content: '↝'; color: var(--teal); font-size: 1rem; }
+.chart-zone { position: relative; z-index: 2; display: flex; align-items: flex-end; padding: 3vw 5vw 4vw 2vw; cursor: ns-resize; opacity: 0; animation: fadeUp 1s var(--ease) forwards; animation-delay: 0.3s; }
+.chart-inner { position: relative; width: 100%; height: 58vh; display: flex; align-items: flex-end; gap: clamp(10px, 2.2vw, 22px); }
+.threshold-line { position: absolute; left: -1vw; right: 0; height: 1px; background: var(--paper); top: 34%; transition: top 0.05s linear; pointer-events: none; box-shadow: 0 0 12px 0 var(--paper); }
+.threshold-line::before { content: ''; position: absolute; left: 0; top: -3px; width: 6px; height: 7px; background: var(--paper); border-radius: 50%; }
+.threshold-tag { position: absolute; left: 0; top: -22px; font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.06em; color: var(--paper); background: var(--ink); padding: 2px 0; }
+.col { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 0.6rem; }
+.bar { width: 100%; max-width: 40px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, color-mix(in srgb, var(--teal) 92%, white 8%) 0%, var(--teal) 55%, var(--teal-dim) 100%); box-shadow: 0 0 20px -6px var(--teal), inset 0 1px 0 rgba(255,255,255,0.12); transition: height 1.2s var(--ease), background 0.4s var(--ease), box-shadow 0.4s var(--ease), transform 0.2s var(--ease); transform-origin: bottom center; position: relative; }
+.col:hover .bar { transform: scaleX(1.15); box-shadow: 0 0 30px -4px var(--teal), inset 0 1px 0 rgba(255,255,255,0.16); }
+.bar.over { background: linear-gradient(180deg, color-mix(in srgb, var(--flag) 92%, white 8%) 0%, var(--flag) 55%, var(--flag-dim) 100%); box-shadow: 0 0 20px -5px var(--flag), inset 0 1px 0 rgba(255,255,255,0.12); animation: barPulse 2.4s ease-in-out infinite; }
+.col:hover .bar.over { box-shadow: 0 0 34px -3px var(--flag), inset 0 1px 0 rgba(255,255,255,0.16); }
+@keyframes barPulse { 0%, 100% { box-shadow: 0 0 16px -6px var(--flag), inset 0 1px 0 rgba(255,255,255,0.12); } 50% { box-shadow: 0 0 30px -2px var(--flag), inset 0 1px 0 rgba(255,255,255,0.12); } }
+.bar-val { font-family: var(--font-mono); font-size: 0.62rem; color: var(--paper-dim); transition: color 0.25s var(--ease), transform 0.25s var(--ease); }
+.col:hover .bar-val { color: var(--paper); transform: translateY(-2px); }
+.col-id { font-family: var(--font-mono); font-size: 0.58rem; color: var(--paper-dim); opacity: 0.55; letter-spacing: 0.08em; }
+.summary-float { position: absolute; top: 3vw; right: 5vw; text-align: right; z-index: 3; font-family: var(--font-mono); font-size: 0.66rem; color: var(--paper-dim); letter-spacing: 0.05em; opacity: 0; animation: fadeUp 0.9s var(--ease) forwards; animation-delay: 0.55s; }
+.summary-float .n { font-family: var(--font-display); font-weight: 700; font-size: 2.3rem; color: var(--paper); display: block; line-height: 1; margin-bottom: 4px; transition: color 0.3s var(--ease), text-shadow 0.3s var(--ease); }
+.summary-float.over .n { color: var(--flag); text-shadow: 0 0 22px color-mix(in srgb, var(--flag) 55%, transparent); }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.displace { transition: transform 0.55s var(--ease), opacity 0.4s var(--ease); }
+section.block { position: relative; z-index: 2; padding: 8rem 6vw; border-top: 1px solid var(--line); }
+.block-header { max-width: 640px; margin: 0 auto; text-align: center; }
+.eyebrow-line { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--paper-dim); margin-bottom: 1rem; }
+.block h2 { font-family: var(--font-display); font-weight: 700; font-size: clamp(1.8rem, 3.2vw, 3rem); letter-spacing: -0.02em; margin-bottom: 1rem; line-height: 1.12; }
+.block h2 em { font-style: normal; font-weight: 400; color: var(--teal); }
+.block-sub { font-family: var(--font-body); font-weight: 300; color: var(--paper-dim); font-size: 1.02rem; line-height: 1.7; margin: 0 auto; }
+.reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
+.reveal.in-view { opacity: 1; transform: translateY(0); }
+.steps { margin-top: 3.5rem; display: flex; flex-direction: column; max-width: 780px; margin-left: auto; margin-right: auto; }
+.step { display: grid; grid-template-columns: 90px 1fr; gap: 2rem; padding: 2.2rem 0; border-top: 1px solid var(--line); transition: padding-left 0.3s var(--ease); }
+.step:last-child { border-bottom: 1px solid var(--line); }
+.step:hover { padding-left: 0.6rem; }
+.step-num { font-family: var(--font-display); font-weight: 400; font-size: 2.2rem; color: var(--paper-dim); line-height: 1; }
+.step-body h3 { font-family: var(--font-body); font-weight: 600; font-size: 1.15rem; margin-bottom: 0.5rem; }
+.step-body p { font-family: var(--font-body); font-weight: 300; color: var(--paper-dim); max-width: 60ch; line-height: 1.65; font-size: 0.96rem; }
+.step-tag { font-family: var(--font-mono); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--teal); margin-top: 0.7rem; display: inline-block; }
+.features-grid { margin-top: 3.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.feature-card { background: transparent; padding: 0 0.5rem; transition: transform 0.3s var(--ease); text-align: center; }
+.feature-card:hover { transform: translateY(-4px); }
+.feature-mark { width: 26px; height: 2px; background: var(--teal); box-shadow: 0 0 10px 0 var(--teal); margin: 0 auto 1.4rem; }
+.feature-card h3 { font-family: var(--font-body); font-weight: 600; font-size: 1.05rem; margin-bottom: 0.7rem; }
+.feature-card p { font-family: var(--font-body); font-weight: 300; font-size: 0.9rem; color: var(--paper-dim); line-height: 1.65; }
+@media (max-width: 880px) { .hero { grid-template-columns: 1fr; } .chart-zone { padding-top: 0; } .chart-inner { height: 40vh; } .summary-float { position: static; text-align: left; margin: 1rem 0 0; animation: none; opacity: 1; } .features-grid { grid-template-columns: 1fr; } .step { grid-template-columns: 50px 1fr; } }
+.cta-block { text-align: center; padding: 9rem 6vw; }
+.cta-block .btn-primary { font-size: 0.78rem; padding: 1.05rem 2rem; }
+@media (prefers-reduced-motion: reduce) { h1, .sub, .cta-row, .chart-zone, .hint, .summary-float, .reveal { animation: none; opacity: 1; transform: none; } .bar { transition: none; } }
+</style>
+</head>
+<body>
+<div class="bg-field"></div>
+<div class="bg-orb one"></div>
+<div class="bg-orb two"></div>
+<div class="spotlight" id="spotlight"></div>
+
+<nav>
+  <div class="logo">Load<span>Balance</span></div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#features">Features</a>
+    <a href="#start">Get started</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-toggle" id="themeToggle"><span class="dot"></span><span id="themeLabel">DARK</span></button>
+    <a class="nav-signin" href="app.html#/login">Sign in</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="copy">
+    <h1>
+      <span class="word">Every</span> <span class="word">department</span><br>
+      <span class="word">is</span> <em class="word">out</em> <em class="word">of</em> <em class="word">balance.</em><br>
+      <span class="word">We</span> <span class="word">even</span> <span class="word">it</span> <span class="word">out.</span>
+    </h1>
+    <p class="sub">
+      LoadBalance reads existing faculty assignments, finds who's over their limit and who has room, and proposes the <strong>fewest possible changes</strong> to fix it — checked by a real optimizer, not a guess.
+    </p>
+    <div class="cta-row">
+      <a class="btn-primary" href="app.html#/login">See it balance →</a>
+      <a class="btn-ghost" href="#how">How it works</a>
+    </div>
+    <p class="hint">move your cursor over the chart — drag the line to set a workload cap</p>
+  </div>
+
+  <div class="chart-zone" id="chartZone">
+    <div class="summary-float" id="summaryFloat">
+      <span class="n" id="overCount">0</span>
+      over the current cap
+    </div>
+    <div class="chart-inner" id="chartInner">
+      <div class="threshold-line" id="thresholdLine"><span class="threshold-tag" id="thresholdTag">17h cap</span></div>
+      <div class="col"><div class="bar" id="b1"></div><span class="bar-val" id="v1">—</span><span class="col-id">F-01</span></div>
+      <div class="col"><div class="bar" id="b2"></div><span class="bar-val" id="v2">—</span><span class="col-id">F-02</span></div>
+      <div class="col"><div class="bar" id="b3"></div><span class="bar-val" id="v3">—</span><span class="col-id">F-03</span></div>
+      <div class="col"><div class="bar" id="b4"></div><span class="bar-val" id="v4">—</span><span class="col-id">F-04</span></div>
+      <div class="col"><div class="bar" id="b5"></div><span class="bar-val" id="v5">—</span><span class="col-id">F-05</span></div>
+      <div class="col"><div class="bar" id="b6"></div><span class="bar-val" id="v6">—</span><span class="col-id">F-06</span></div>
+      <div class="col"><div class="bar" id="b7"></div><span class="bar-val" id="v7">—</span><span class="col-id">F-07</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="how">
+  <div class="block-header">
+    <p class="eyebrow-line reveal">Process</p>
+    <h2 class="reveal">Four steps from <em>chaos</em> to a published plan</h2>
+    <p class="block-sub reveal">Nothing changes officially until an HOD approves it. Every step is visible, reversible, and logged.</p>
+  </div>
+  <div class="steps">
+    <div class="step reveal">
+      <span class="step-num">01</span>
+      <div class="step-body">
+        <h3>Upload what already exists</h3>
+        <p>Current teaching, lab, mentoring, exam and admin assignments come in as-is — no fresh timetable, no starting from zero.</p>
+        <span class="step-tag">Input</span>
+      </div>
+    </div>
+    <div class="step reveal">
+      <span class="step-num">02</span>
+      <div class="step-body">
+        <h3>Audit against real limits</h3>
+        <p>Every faculty member's total load is checked against their designation's weekly cap. Overloaded and underused staff are flagged instantly.</p>
+        <span class="step-tag">Calculate</span>
+      </div>
+    </div>
+    <div class="step reveal">
+      <span class="step-num">03</span>
+      <div class="step-body">
+        <h3>Simulate the fix</h3>
+        <p>A constraint solver finds the smallest set of reassignments that brings everyone back within range — and shows it as a proposal, not a published change.</p>
+        <span class="step-tag">Optimize</span>
+      </div>
+    </div>
+    <div class="step reveal">
+      <span class="step-num">04</span>
+      <div class="step-body">
+        <h3>HOD approves, everyone's notified</h3>
+        <p>Only an authorized approval publishes a new plan version. Affected faculty and coordinators are notified automatically, with a full audit trail.</p>
+        <span class="step-tag">Publish</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="features">
+  <div class="block-header">
+    <p class="eyebrow-line reveal">Why it's different</p>
+    <h2 class="reveal">Built to <em>fix</em>, not to generate</h2>
+    <p class="block-sub reveal">Most tools build a timetable from nothing. We start from what's already assigned and change as little as possible.</p>
+  </div>
+  <div class="features-grid reveal">
+    <div class="feature-card">
+      <div class="feature-mark"></div>
+      <h3>Explainable, not just a number</h3>
+      <p>Every flagged imbalance comes with a specific, plain-language suggestion — who to move, what to move, and why it fixes the problem.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-mark"></div>
+      <h3>A real optimizer underneath</h3>
+      <p>Built on constraint programming, not if/else rules — it finds the minimum-disruption fix, not just any fix.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-mark"></div>
+      <h3>Nothing changes without approval</h3>
+      <p>Every proposal is a simulation until an HOD publishes it. The official plan is never touched silently.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block cta-block" id="start">
+  <p class="eyebrow-line reveal">Get started</p>
+  <h2 class="reveal">Your department's<br><em>next balanced week</em> starts here.</h2>
+  <div class="cta-row reveal" style="justify-content: center; margin-top: 2rem;">
+    <a class="btn-primary" href="app.html#/login">Try LoadBalance →</a>
+  </div>
+</section>
+
+<script>
+const hours = [24, 10, 20, 15, 25, 8, 18];
+const CAP_MAX = 28;
+const bars = hours.map((_, i) => document.getElementById('b' + (i + 1)));
+const vals = hours.map((_, i) => document.getElementById('v' + (i + 1)));
+const chartInner = document.getElementById('chartInner');
+const thresholdLine = document.getElementById('thresholdLine');
+const thresholdTag = document.getElementById('thresholdTag');
+const overCount = document.getElementById('overCount');
+const summaryFloat = document.getElementById('summaryFloat');
+
+function paintBars() {
+  bars.forEach((bar, i) => { bar.style.height = (hours[i] / CAP_MAX * 100) + '%'; vals[i].textContent = hours[i] + 'h'; });
+}
+window.addEventListener('load', () => requestAnimationFrame(paintBars));
+
+function evaluateThreshold(capHours) {
+  let over = 0;
+  bars.forEach((bar, i) => { const isOver = hours[i] > capHours; bar.classList.toggle('over', isOver); if (isOver) over++; });
+  overCount.textContent = over;
+  summaryFloat.classList.toggle('over', over > 0);
+  thresholdTag.textContent = Math.round(capHours) + 'h cap';
+}
+
+const chartZone = document.getElementById('chartZone');
+function updateThresholdFromClientY(clientY) {
+  const rect = chartInner.getBoundingClientRect();
+  let pct = (clientY - rect.top) / rect.height;
+  pct = Math.max(0.05, Math.min(0.95, pct));
+  thresholdLine.style.top = (pct * 100) + '%';
+  evaluateThreshold(CAP_MAX * (1 - pct));
+}
+chartZone.addEventListener('mousemove', (e) => updateThresholdFromClientY(e.clientY));
+
+window.addEventListener('load', () => {
+  const pct = 1 - (17 / CAP_MAX);
+  thresholdLine.style.top = (pct * 100) + '%';
+  evaluateThreshold(17);
+});
+
+const spotlight = document.getElementById('spotlight');
+document.addEventListener('mousemove', (e) => {
+  spotlight.style.setProperty('--mx', (e.clientX / window.innerWidth) * 100 + '%');
+  spotlight.style.setProperty('--my', (e.clientY / window.innerHeight) * 100 + '%');
+});
+
+const themeToggle = document.getElementById('themeToggle');
+const themeLabel = document.getElementById('themeLabel');
+const displaceTargets = [
+  ...document.querySelectorAll('h1 .word'),
+  ...document.querySelectorAll('.sub, .cta-row, .hint'),
+  ...document.querySelectorAll('.col'),
+  ...document.querySelectorAll('.summary-float')
+];
+displaceTargets.forEach(el => el.classList.add('displace'));
+
+let isLight = false;
+themeToggle.addEventListener('click', () => {
+  isLight = !isLight;
+  displaceTargets.forEach(el => {
+    const dx = (Math.random() - 0.5) * 60;
+    const dy = (Math.random() - 0.5) * 40;
+    const rot = (Math.random() - 0.5) * 10;
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
+    el.style.opacity = '0.35';
+  });
+  setTimeout(() => {
+    document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+    themeLabel.textContent = isLight ? 'LIGHT' : 'DARK';
+  }, 180);
+  setTimeout(() => {
+    displaceTargets.forEach(el => { el.style.transform = 'translate(0, 0) rotate(0deg)'; el.style.opacity = '1'; });
+  }, 260);
+});
+
+const revealEls = document.querySelectorAll('.reveal');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('in-view'); });
+}, { threshold: 0.15 });
+revealEls.forEach(el => io.observe(el));
+</script>
+</body>
+</html>
