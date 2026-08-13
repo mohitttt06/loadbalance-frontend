@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LoadBalance — App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0B0F17; --ink-2: #10151F; --paper: #F3EFE4; --paper-dim: #8B8778;
+  --flag: #FF5C77; --flag-dim: #47202B; --teal: #35C99A; --teal-dim: #17332B;
+  --hold: #6E8FD9; --hold-dim: #202B47;
+  --line: rgba(243, 239, 228, 0.07); --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --font-display: 'Sora', sans-serif; --font-body: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+}
+html[data-theme="light"] {
+  --ink: #F3EFE4; --ink-2: #EAE4D3; --paper: #14110A; --paper-dim: #6B6555;
+  --flag: #D6455B; --flag-dim: #F7D8DD; --teal: #157A5A; --teal-dim: #C7E8DB;
+  --hold: #4C63B6; --hold-dim: #E1E6F7;
+  --line: rgba(20, 17, 10, 0.08);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; transition: background 0.4s var(--ease); }
+body { background: var(--ink); color: var(--paper); font-family: var(--font-body); font-weight: 400; min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+a { color: inherit; }
+button { font-family: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; }
+
+/* ---------- shared background, identical to landing ---------- */
+.bg-field { position: fixed; inset: 0; pointer-events: none; z-index: 0; background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px); background-size: 34px 34px; }
+.bg-orb { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; opacity: 0.16; }
+.bg-orb.one { width: 46vw; height: 46vw; top: -14vw; right: -10vw; background: var(--teal); animation: drift1 26s ease-in-out infinite; }
+.bg-orb.two { width: 38vw; height: 38vw; bottom: -12vw; left: -8vw; background: var(--flag); opacity: 0.10; animation: drift2 32s ease-in-out infinite; }
+@keyframes drift1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-3vw, 4vw); } }
+@keyframes drift2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(4vw, -3vw); } }
+.spotlight { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(460px circle at var(--mx, 50%) var(--my, 50%), rgba(53, 201, 154, 0.08), transparent 60%); z-index: 0; }
+
+/* ---------- top nav, identical component to landing ---------- */
+nav.topnav { position: fixed; top: 0; left: 0; right: 0; z-index: 30; display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 5vw; backdrop-filter: blur(10px); background: color-mix(in srgb, var(--ink) 78%, transparent); border-bottom: 1px solid var(--line); }
+.logo { font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; }
+.logo span { color: var(--teal); font-weight: 400; }
+.nav-right { display: flex; align-items: center; gap: 1rem; }
+.demo-badge { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--teal); border: 1px solid var(--teal); padding: 0.3rem 0.6rem; border-radius: 20px; display: none; }
+.demo-badge.show { display: inline-block; }
+.theme-toggle { background: transparent; border: 1px solid var(--line); color: var(--paper); font-family: var(--font-mono); font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 0.5rem 0.85rem; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: border-color 0.25s var(--ease); }
+.theme-toggle:hover { border-color: var(--paper-dim); }
+.theme-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px 0 var(--teal); }
+.nav-link-btn { font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper); text-decoration: none; border: 1px solid var(--line); padding: 0.5rem 0.9rem; border-radius: 2px; background: none; transition: border-color 0.25s var(--ease), background 0.25s var(--ease); }
+.nav-link-btn:hover { border-color: var(--teal); background: var(--teal-dim); }
+@media (max-width: 780px) { nav.topnav { padding: 1rem 4vw; } }
+
+/* ---------- buttons, identical scale to landing ---------- */
+.btn-primary { background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.85rem 1.5rem; border: none; border-radius: 2px; cursor: pointer; transition: transform 0.25s var(--ease), background 0.25s var(--ease); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.btn-primary:hover { transform: translateY(-2px); background: var(--teal); color: #fff; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn-ghost { background: transparent; color: var(--paper); font-family: var(--font-mono); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.85rem 1.3rem; border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: border-color 0.25s var(--ease); text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.btn-ghost:hover { border-color: var(--paper-dim); }
+.btn-sm { padding: 0.5rem 0.85rem; font-size: 0.64rem; }
+
+/* ---------- eyebrow / headings, identical to landing ---------- */
+.eyebrow { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-dim); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 0.3rem 0.6rem; border-radius: 20px; }
+.pill.teal { background: var(--teal-dim); color: var(--teal); }
+.pill.flag { background: var(--flag-dim); color: var(--flag); }
+.pill.hold { background: var(--hold-dim); color: var(--hold); }
+
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.03em; padding: 0.85rem 1.3rem; border-radius: 4px; opacity: 0; transition: all 0.3s var(--ease); z-index: 999; pointer-events: none; box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ---------- surfaces: hairline dividers instead of boxed cards, same spirit as landing's steps/feature-cards ---------- */
+.card { background: color-mix(in srgb, var(--paper) 3%, transparent); border: 1px solid var(--line); border-radius: 6px; }
+.auth-card.card, .wizard-card.card { background: color-mix(in srgb, var(--paper) 4%, transparent); }
+
+/* ---------- auth screens ---------- */
+#authView { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 6.5rem 2rem 3rem; position: relative; }
+.auth-box { position: relative; z-index: 2; width: 100%; max-width: 420px; }
+.auth-logo { font-family: var(--font-display); font-weight: 700; font-size: 1.2rem; text-align: center; margin-bottom: 1.6rem; letter-spacing: -0.02em; }
+.auth-logo span { color: var(--teal); font-weight: 400; }
+.demo-cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-bottom: 1.6rem; padding: 0.9rem; border: 1px dashed var(--teal); border-radius: 6px; background: var(--teal-dim); color: var(--teal); font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; transition: transform 0.2s var(--ease); }
+.demo-cta:hover { transform: translateY(-2px); }
+.demo-sub { text-align: center; font-size: 0.76rem; color: var(--paper-dim); margin: -1.1rem 0 1.6rem; }
+.or-divider { display: flex; align-items: center; gap: 10px; margin-bottom: 1.6rem; }
+.or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.or-divider span { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper-dim); }
+.role-switch { display: flex; background: color-mix(in srgb, var(--paper) 4%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 4px; margin-bottom: 1.4rem; }
+.role-switch button { flex: 1; background: transparent; border: none; color: var(--paper-dim); font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.6rem; border-radius: 4px; transition: all 0.2s var(--ease); }
+.role-switch button.active { background: var(--paper); color: var(--ink); }
+.auth-card { padding: 1.8rem; }
+.auth-tabs { display: flex; gap: 1.6rem; margin-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+.auth-tabs button { background: none; border: none; color: var(--paper-dim); font-family: var(--font-body); font-weight: 500; font-size: 0.86rem; padding-bottom: 0.75rem; border-bottom: 2px solid transparent; }
+.auth-tabs button.active { color: var(--paper); border-bottom-color: var(--teal); }
+.field { margin-bottom: 1.05rem; }
+.field label { display: block; font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--paper-dim); margin-bottom: 0.4rem; }
+.field input, .field select { width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--paper); padding: 0.72rem 0.85rem; border-radius: 4px; font-size: 0.88rem; outline: none; transition: border-color 0.2s var(--ease); }
+.field input:focus, .field select:focus { border-color: var(--teal); }
+.field-hint { font-size: 0.73rem; color: var(--paper-dim); margin-top: 0.4rem; }
+.auth-card .btn-primary { width: 100%; padding: 0.8rem; margin-top: 0.3rem; }
+.code-reveal { text-align: center; padding: 1.5rem 1rem; background: var(--teal-dim); border-radius: 6px; margin: 1rem 0 1.3rem; }
+.code-reveal .code { font-family: var(--font-mono); font-size: 1.6rem; font-weight: 600; letter-spacing: 0.14em; color: var(--teal); margin: 0.5rem 0; }
+.code-reveal p { font-size: 0.76rem; color: var(--paper-dim); }
+.auth-swap { text-align: center; margin-top: 1.1rem; font-size: 0.8rem; color: var(--paper-dim); }
+
+/* ---------- app shell ---------- */
+#appShell { display: none; }
+#appShell.active { display: grid; grid-template-columns: 220px 1fr; padding-top: 4.3rem; min-height: 100vh; position: relative; z-index: 1; }
+.sidebar { padding: 1.8rem 1rem; display: flex; flex-direction: column; position: sticky; top: 4.3rem; height: calc(100vh - 4.3rem); border-right: 1px solid var(--line); }
+.side-link { display: flex; align-items: center; gap: 10px; padding: 0.62rem 0.7rem; border-radius: 4px; font-size: 0.85rem; font-weight: 500; color: var(--paper-dim); text-decoration: none; margin-bottom: 2px; transition: background 0.15s var(--ease), color 0.15s var(--ease); background: none; border: none; border-left: 2px solid transparent; width: 100%; text-align: left; }
+.side-link:hover { color: var(--paper); background: var(--line); }
+.side-link.active { color: var(--teal); background: var(--teal-dim); border-left-color: var(--teal); }
+.side-link .ic { width: 16px; text-align: center; opacity: 0.85; font-size: 0.85rem; }
+.side-badge { margin-left: auto; background: var(--flag); color: #fff; font-family: var(--font-mono); font-size: 0.6rem; padding: 1px 6px; border-radius: 10px; }
+.sidebar-bottom { margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--line); }
+.sidebar-user { display: flex; align-items: center; gap: 10px; padding: 0.5rem 0.6rem; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--teal); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 600; font-size: 0.8rem; flex-shrink: 0; }
+.sidebar-user .who { line-height: 1.3; }
+.sidebar-user .who b { font-size: 0.8rem; display: block; }
+.sidebar-user .who span { font-size: 0.68rem; color: var(--paper-dim); }
+.sidebar-signout { font-family: var(--font-mono); font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--paper-dim); background: none; border: none; margin-top: 0.5rem; padding: 0.4rem 0.6rem; }
+.sidebar-signout:hover { color: var(--flag); }
+
+.main { padding: 2.2rem 3vw 5rem; position: relative; z-index: 1; }
+.topbar { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem; }
+.topbar h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.55rem; letter-spacing: -0.02em; }
+.topbar p { color: var(--paper-dim); font-size: 0.87rem; margin-top: 0.3rem; }
+.topbar-controls { display: flex; gap: 0.6rem; }
+.select-chip { background: var(--ink); border: 1px solid var(--line); color: var(--paper); font-family: var(--font-mono); font-size: 0.72rem; padding: 0.5rem 0.8rem; border-radius: 4px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-bottom: 1.2rem; }
+.stat-card { padding: 1.3rem 1.4rem; display: flex; flex-direction: column; gap: 0.6rem; background: var(--ink); }
+.stat-card .lbl { font-family: var(--font-mono); font-size: 0.65rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--paper-dim); }
+.stat-card .val { font-family: var(--font-display); font-weight: 700; font-size: 2rem; }
+.stat-card .sub { font-size: 0.74rem; color: var(--paper-dim); }
+.stat-card .val.flag { color: var(--flag); }
+
+.grid-2 { display: grid; grid-template-columns: 1.1fr 1.1fr 1fr; gap: 1.2rem; margin-bottom: 1.2rem; align-items: stretch; }
+.panel { padding: 1.4rem 1.5rem; }
+.panel h3 { font-family: var(--font-display); font-weight: 600; font-size: 0.96rem; margin-bottom: 0.9rem; }
+.panel h3 small { display: block; font-family: var(--font-mono); font-size: 0.6rem; color: var(--paper-dim); font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+.donut-wrap { display: flex; align-items: center; gap: 1.2rem; }
+.donut { width: 104px; height: 104px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+.donut .center { text-align: center; }
+.donut .center b { font-family: var(--font-display); font-size: 1.4rem; display: block; line-height: 1; }
+.donut .center span { font-size: 0.6rem; color: var(--paper-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+.legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.79rem; margin-bottom: 0.5rem; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.legend-row .n { margin-left: auto; font-family: var(--font-mono); font-weight: 600; }
+
+.mini-bars { display: flex; align-items: flex-end; gap: 10px; height: 108px; margin-top: 0.4rem; }
+.mini-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.mini-bar { width: 100%; max-width: 26px; border-radius: 3px 3px 1px 1px; background: var(--teal); box-shadow: 0 0 14px -6px var(--teal); transition: height 0.8s var(--ease); }
+.mini-col .lb { font-size: 0.58rem; color: var(--paper-dim); font-family: var(--font-mono); }
+
+.activity-item { display: flex; gap: 10px; padding: 0.65rem 0; border-top: 1px solid var(--line); font-size: 0.81rem; }
+.activity-item:first-of-type { border-top: none; }
+.activity-item .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 8px 0 var(--teal); margin-top: 6px; flex-shrink: 0; }
+.activity-item .time { font-size: 0.67rem; color: var(--paper-dim); font-family: var(--font-mono); }
+
+.action-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; margin-bottom: 1.2rem; }
+.action-card { padding: 1.7rem; cursor: pointer; transition: transform 0.2s var(--ease), border-color 0.2s var(--ease); }
+.action-card:hover { transform: translateY(-3px); border-color: var(--teal); }
+.action-card .ic { font-size: 1.3rem; margin-bottom: 0.8rem; color: var(--teal); }
+.action-card h3 { font-family: var(--font-display); font-weight: 600; margin-bottom: 0.4rem; }
+.action-card p { font-size: 0.83rem; color: var(--paper-dim); line-height: 1.55; }
+.action-card .go { font-family: var(--font-mono); font-size: 0.66rem; color: var(--teal); margin-top: 0.9rem; display: inline-block; letter-spacing: 0.05em; text-transform: uppercase; }
+
+.wizard-steps { display: flex; align-items: center; gap: 0; margin-bottom: 2rem; overflow-x: auto; }
+.wz-step { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wz-num { width: 25px; height: 25px; border-radius: 50%; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 0.7rem; color: var(--paper-dim); flex-shrink: 0; transition: all 0.2s var(--ease); }
+.wz-step.done .wz-num { background: var(--teal); border-color: var(--teal); color: #fff; }
+.wz-step.current .wz-num { border-color: var(--teal); color: var(--teal); font-weight: 700; }
+.wz-label { font-size: 0.77rem; color: var(--paper-dim); white-space: nowrap; }
+.wz-step.current .wz-label, .wz-step.done .wz-label { color: var(--paper); }
+.wz-line { width: 32px; height: 1px; background: var(--line); margin: 0 10px; flex-shrink: 0; }
+
+.wizard-card { padding: 1.9rem; max-width: 900px; }
+.form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.chip-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.3rem; }
+.chip { background: var(--ink); border: 1px solid var(--line); padding: 0.55rem 1rem; border-radius: 4px; font-size: 0.81rem; color: var(--paper); }
+.chip.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.chip.checkbox.active { background: var(--teal-dim); color: var(--teal); border-color: var(--teal); }
+.dropzone { border: 1px dashed var(--line); border-radius: 6px; padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; transition: border-color 0.2s var(--ease); cursor: pointer; }
+.dropzone:hover { border-color: var(--teal); }
+.dropzone .ic { font-size: 1.7rem; margin-bottom: 0.6rem; color: var(--teal); }
+.dropzone p { font-size: 0.85rem; }
+.dropzone .sm { font-size: 0.71rem; color: var(--paper-dim); margin-top: 0.3rem; }
+.file-row { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; background: var(--ink); border: 1px solid var(--line); border-radius: 4px; margin-top: 0.55rem; font-size: 0.81rem; }
+.file-row .nm { display: flex; align-items: center; gap: 8px; }
+.file-row .sz { color: var(--paper-dim); font-family: var(--font-mono); font-size: 0.7rem; }
+.wizard-foot { display: flex; justify-content: space-between; margin-top: 2rem; flex-wrap: wrap; gap: 0.8rem; }
+
+.kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem 1.6rem; }
+.kv-grid .k { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--paper-dim); margin-bottom: 0.3rem; }
+.kv-grid .v { font-size: 0.94rem; font-weight: 500; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+th { text-align: left; font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--paper-dim); padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--line); }
+td { padding: 0.72rem 0.75rem; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: none; }
+td.center, th.center { text-align: center; }
+.tt-cell { border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.75rem; display: inline-block; }
+.tt-cell.busy { background: var(--teal-dim); color: var(--teal); }
+.tt-cell.lab { background: var(--hold-dim); color: var(--hold); }
+.tt-cell.free { color: var(--paper-dim); }
+
+.list-tabs { display: flex; gap: 0.4rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+.list-tabs button { background: transparent; border: 1px solid var(--line); color: var(--paper-dim); font-size: 0.79rem; padding: 0.48rem 0.95rem; border-radius: 20px; }
+.list-tabs button.active { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+
+.detail-back { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.71rem; color: var(--paper-dim); background: none; border: none; margin-bottom: 1.2rem; }
+.detail-back:hover { color: var(--paper); }
+.detail-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 1.2rem; align-items: start; }
+.impact-row { display: flex; justify-content: space-between; padding: 0.55rem 0; border-top: 1px solid var(--line); font-size: 0.83rem; }
+.impact-row:first-of-type { border-top: none; }
+.radio-opt { display: flex; align-items: flex-start; gap: 10px; padding: 0.65rem 0; cursor: pointer; }
+.radio-opt input { margin-top: 3px; accent-color: var(--teal); }
+.radio-opt span { font-size: 0.85rem; }
+textarea.field-textarea { width: 100%; background: var(--ink); border: 1px solid var(--line); color: var(--paper); padding: 0.7rem 0.85rem; border-radius: 4px; font-size: 0.85rem; min-height: 68px; resize: vertical; outline: none; }
+
+@media (max-width: 1080px) { .grid-2 { grid-template-columns: 1fr 1fr; } .stat-grid { grid-template-columns: repeat(2,1fr); } }
+@media (max-width: 880px) { #appShell.active { grid-template-columns: 1fr; } .sidebar { display: none; } .grid-2, .action-cards, .detail-grid { grid-template-columns: 1fr; } .form-grid { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .bg-orb { animation: none; } }
+</style>
+</head>
+<body>
+<div class="bg-field"></div>
+<div class="bg-orb one"></div>
+<div class="bg-orb two"></div>
+<div class="spotlight" id="spotlight"></div>
+
+<nav class="topnav">
+  <div class="logo">Load<span>Balance</span></div>
+  <div class="nav-right">
+    <span class="demo-badge" id="demoBadge">● Demo mode</span>
+    <button class="theme-toggle" id="themeToggle"><span class="dot"></span><span id="themeLabel">DARK</span></button>
+    <a class="nav-link-btn" href="index.html">← Landing</a>
+    <button class="nav-link-btn" id="navSignout" style="display:none" onclick="signOut()">Sign out</button>
+  </div>
+</nav>
+
+<!-- ===================== AUTH ===================== -->
+<div id="authView">
+  <div class="auth-box">
+    <div class="auth-logo">Sign in to Load<span>Balance</span></div>
+
+    <button class="demo-cta" onclick="enterDemo()">▶ Explore with demo data</button>
+    <p class="demo-sub">Skips login — loads a full CSE-AI department with sample faculty, leave, and optimization requests.</p>
+
+    <div class="or-divider"><span>or continue manually</span></div>
+
+    <div class="role-switch">
+      <button id="roleHodBtn" class="active" onclick="setRole('hod')">HOD</button>
+      <button id="roleFacultyBtn" onclick="setRole('faculty')">Faculty</button>
+    </div>
+    <div class="card auth-card">
+      <div class="auth-tabs">
+        <button id="tabLoginBtn" class="active" onclick="setAuthTab('login')">Sign in</button>
+        <button id="tabRegisterBtn" onclick="setAuthTab('register')">Register</button>
+      </div>
+      <div id="authFormZone"></div>
+    </div>
+    <p class="auth-swap" id="authSwapHint"></p>
+  </div>
+</div>
+
+<!-- ===================== APP SHELL ===================== -->
+<div id="appShell">
+  <aside class="sidebar" id="sidebar"></aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =================================================================
+   FAKE DATA
+================================================================= */
+let session = null; // { role: 'hod'|'faculty', name, dept }
+let isDemo = false;
+
+const DEPT_CODES = { 'CS-4471': 'CSE-AI', 'ME-2290': 'Mechanical', 'EC-8813': 'Electronics' };
+
+const FACULTY_SEED = [
+  { id:'F-01', name:'Dr. Meera Iyer', hours:24, limit:28, dept:'CSE-AI' },
+  { id:'F-02', name:'Prof. Rahul S',  hours:16, limit:28, dept:'CSE-AI' },
+  { id:'F-03', name:'Dr. Sandeep K',  hours:20, limit:28, dept:'CSE-AI' },
+  { id:'F-04', name:'Dr. Priya N',    hours:15, limit:28, dept:'CSE-AI' },
+  { id:'F-05', name:'Dr. Amit Verma', hours:25, limit:28, dept:'CSE-AI' },
+  { id:'F-06', name:'Prof. Kavya R',  hours:8,  limit:28, dept:'CSE-AI' },
+  { id:'F-07', name:'Dr. Arjun Kumar Jr', hours:18, limit:28, dept:'CSE-AI' },
+];
+const LEAVE_SEED = [
+  { id:1, faculty:'Dr. Meera Iyer', type:'Mandatory', from:'20 May 2024', to:'24 May 2024', days:5, classes:8, status:'Pending' },
+  { id:2, faculty:'Prof. Rahul S', type:'Normal', from:'28 May 2024', to:'29 May 2024', days:2, classes:4, status:'Pending' },
+  { id:3, faculty:'Dr. Priya N', type:'Normal', from:'05 Jun 2024', to:'05 Jun 2024', days:1, classes:2, status:'Approved' },
+  { id:4, faculty:'Dr. Amit Verma', type:'Mandatory', from:'10 Jun 2024', to:'14 Jun 2024', days:5, classes:10, status:'Pending' },
+];
+const OPTIMIZE_SEED = [
+  { id:1, faculty:'Dr. Rahul S', reason:'Workload imbalance', requestedOn:'12 May 2024, 11:30 AM', current:24, proposed:18, others:'+2 avg' },
+  { id:2, faculty:'Dr. Meera Iyer', reason:'Section reassignment', requestedOn:'11 May 2024, 4:10 PM', current:16, proposed:18, others:'+1 avg' },
+  { id:3, faculty:'Dr. Sandeep K', reason:'Lab clash', requestedOn:'09 May 2024, 9:00 AM', current:14, proposed:12, others:'0 avg' },
+];
+const clone = (x) => JSON.parse(JSON.stringify(x));
+let faculty = clone(FACULTY_SEED);
+let leaveRequests = clone(LEAVE_SEED);
+let optimizeRequests = clone(OPTIMIZE_SEED);
+
+const timetable = {
+  days: ['Mon','Tue','Wed','Thu','Fri','Sat'],
+  slots: ['8:00 - 9:00','9:00 - 10:00','10:00 - 11:00','11:00 - 12:00','12:00 - 1:00','1:00 - 2:00','2:00 - 3:00','3:00 - 4:00'],
+  grid: [
+    ['DBMS','DL','Maths','OOP','SE','Library'],
+    ['DL','Maths','AI','DBMS','OOP','Free'],
+    ['Maths','OOP','DL','DL','Maths','Free'],
+    ['OOP','DBMS','AI','Maths','DL','Free'],
+    ['BREAK','BREAK','BREAK','BREAK','BREAK','BREAK'],
+    ['DL Lab','OOP Lab','AI Lab','DBMS Lab','SE Lab','Free'],
+    ['Sports','Library','Mentoring','Sports','Library','Free'],
+    ['Free','Free','Sports','Free','Mentoring','Free'],
+  ]
+};
+
+let genCode = null;
+let wizard = { step: 1, dept:'', year:'2nd Year', years:['2nd Year'], sections:['A','B','C'], files:[], reqs:[] };
+
+/* =================================================================
+   TOAST
+================================================================= */
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* =================================================================
+   THEME TOGGLE — identical mechanism to the landing page
+================================================================= */
+let isLight = document.documentElement.getAttribute('data-theme') === 'light';
+function paintThemeLabel() { document.getElementById('themeLabel').textContent = isLight ? 'LIGHT' : 'DARK'; }
+document.getElementById('themeToggle').addEventListener('click', () => {
+  isLight = !isLight;
+  document.documentElement.setAttribute('data-theme', isLight ? 'light' : 'dark');
+  paintThemeLabel();
+});
+paintThemeLabel();
+
+const spotlight = document.getElementById('spotlight');
+document.addEventListener('mousemove', (e) => {
+  spotlight.style.setProperty('--mx', (e.clientX / window.innerWidth) * 100 + '%');
+  spotlight.style.setProperty('--my', (e.clientY / window.innerHeight) * 100 + '%');
+});
+
+/* =================================================================
+   AUTH
+================================================================= */
+let authRole = 'hod';
+let authTab = 'login';
+
+function enterDemo() {
+  isDemo = true;
+  faculty = clone(FACULTY_SEED);
+  leaveRequests = clone(LEAVE_SEED);
+  optimizeRequests = clone(OPTIMIZE_SEED);
+  genCode = 'CS-4471';
+  session = { role: 'hod', name: 'Dr. Arjun Kumar', dept: 'CSE-AI' };
+  toast('Demo mode — sample department loaded');
+  enterApp();
+}
+function resetDemo() {
+  faculty = clone(FACULTY_SEED);
+  leaveRequests = clone(LEAVE_SEED);
+  optimizeRequests = clone(OPTIMIZE_SEED);
+  wizard = { step: 1, dept: session.dept, year:'2nd Year', years:['2nd Year'], sections:['A','B','C'], files:[], reqs:[] };
+  toast('Demo data reset');
+  location.hash = session.role === 'hod' ? '#/dashboard' : '#/my-schedule';
+  route();
+}
+
+function setRole(r) {
+  authRole = r;
+  document.getElementById('roleHodBtn').classList.toggle('active', r === 'hod');
+  document.getElementById('roleFacultyBtn').classList.toggle('active', r === 'faculty');
+  setAuthTab('login');
+}
+function setAuthTab(t) {
+  authTab = t;
+  document.getElementById('tabLoginBtn').classList.toggle('active', t === 'login');
+  document.getElementById('tabRegisterBtn').classList.toggle('active', t === 'register');
+  renderAuthForm();
+}
+
+function renderAuthForm() {
+  const zone = document.getElementById('authFormZone');
+  const hint = document.getElementById('authSwapHint');
+  hint.textContent = '';
+
+  if (authRole === 'hod' && authTab === 'login') {
+    zone.innerHTML = `
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="hod@college.edu" value="arjun.kumar@college.edu"></div>
+      <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••" value="••••••••"></div>
+      <button class="btn-primary" onclick="loginHod()">Sign in as HOD</button>`;
+  }
+  else if (authRole === 'hod' && authTab === 'register') {
+    zone.innerHTML = `
+      <div class="field"><label>Full name</label><input id="regName" placeholder="Dr. Arjun Kumar" value="Dr. Arjun Kumar"></div>
+      <div class="field"><label>Department</label><input id="regDept" placeholder="CSE-AI" value="CSE-AI"></div>
+      <div class="field"><label>College email</label><input id="regEmail" type="email" placeholder="you@college.edu"></div>
+      <div class="field"><label>Password</label><input id="regPass" type="password" placeholder="Create a password"></div>
+      <button class="btn-primary" onclick="registerHod()">Create HOD account</button>
+      <div id="codeZone"></div>`;
+  }
+  else if (authRole === 'faculty' && authTab === 'login') {
+    zone.innerHTML = `
+      <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="faculty@college.edu" value="rahul.s@college.edu"></div>
+      <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••" value="••••••••"></div>
+      <button class="btn-primary" onclick="loginFaculty()">Sign in as Faculty</button>`;
+  }
+  else {
+    zone.innerHTML = `
+      <div class="field">
+        <label>Department access code</label>
+        <input id="regCode" placeholder="e.g. CS-4471" value="${genCode || ''}">
+        <div class="field-hint" id="codeHint">Get this code from your HOD — your department is set automatically from it.</div>
+      </div>
+      <div class="field"><label>Full name</label><input id="regFacName" placeholder="Dr. Priya N"></div>
+      <div class="field"><label>College email</label><input id="regFacEmail" type="email" placeholder="you@college.edu"></div>
+      <div class="field"><label>Password</label><input id="regFacPass" type="password" placeholder="Create a password"></div>
+      <button class="btn-primary" onclick="registerFaculty()">Create faculty account</button>`;
+  }
+}
+
+function randCode() {
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const l = letters[Math.floor(Math.random()*letters.length)] + letters[Math.floor(Math.random()*letters.length)];
+  const n = Math.floor(1000 + Math.random()*8999);
+  return l + '-' + n;
+}
+
+function registerHod() {
+  const dept = (document.getElementById('regDept').value || 'CSE-AI').trim();
+  const name = document.getElementById('regName').value || 'Dr. Arjun Kumar';
+  genCode = randCode();
+  DEPT_CODES[genCode] = dept;
+  document.getElementById('codeZone').innerHTML = `
+    <div class="code-reveal">
+      <p>Your department access code</p>
+      <div class="code">${genCode}</div>
+      <p>Share this with your faculty — out of the app. Anyone who registers with it is added to <b>${dept}</b> automatically.</p>
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="finishHodRegister('${name.replace(/'/g,"\\'")}','${dept.replace(/'/g,"\\'")}')">Continue to dashboard</button>`;
+}
+function finishHodRegister(name, dept) { isDemo = false; session = { role:'hod', name, dept }; enterApp(); }
+function loginHod() { isDemo = false; session = { role:'hod', name:'Dr. Arjun Kumar', dept:'CSE-AI' }; enterApp(); }
+
+function registerFaculty() {
+  const code = (document.getElementById('regCode').value || '').trim().toUpperCase();
+  const name = document.getElementById('regFacName').value || 'New Faculty';
+  const dept = DEPT_CODES[code];
+  if (!dept) {
+    document.getElementById('codeHint').innerHTML = `<span style="color:var(--flag)">Code not recognized — check with your HOD and try again.</span>`;
+    return;
+  }
+  isDemo = false;
+  session = { role:'faculty', name, dept };
+  toast('Registered — department set to ' + dept + ' from your code');
+  enterApp();
+}
+function loginFaculty() { isDemo = false; session = { role:'faculty', name:'Prof. Rahul S', dept:'CSE-AI' }; enterApp(); }
+
+function signOut() {
+  session = null; isDemo = false;
+  document.getElementById('appShell').classList.remove('active');
+  document.getElementById('authView').style.display = 'flex';
+  document.getElementById('navSignout').style.display = 'none';
+  document.getElementById('demoBadge').classList.remove('show');
+  location.hash = '#/login';
+}
+
+function enterApp() {
+  document.getElementById('authView').style.display = 'none';
+  document.getElementById('appShell').classList.add('active');
+  document.getElementById('navSignout').style.display = 'inline-flex';
+  document.getElementById('demoBadge').classList.toggle('show', isDemo);
+  location.hash = session.role === 'hod' ? '#/dashboard' : '#/my-schedule';
+  renderShell();
+  route();
+}
+
+/* =================================================================
+   SIDEBAR + ROUTING
+================================================================= */
+const hodNav = [
+  { key:'dashboard', label:'Dashboard', ic:'▦' },
+  { key:'schedule', label:'Schedule', ic:'▤' },
+  { key:'leave', label:'Leave Requests', ic:'✎', badge:()=> leaveRequests.filter(l=>l.status==='Pending').length },
+  { key:'optimize', label:'Requests to Optimize', ic:'⇄', badge:()=> optimizeRequests.length },
+  { key:'notifications', label:'Notifications', ic:'◔', badge:()=> 3 },
+  { key:'reports', label:'Reports', ic:'▥' },
+  { key:'settings', label:'Settings', ic:'⚙' },
+];
+const facultyNav = [
+  { key:'my-schedule', label:'My Schedule', ic:'▤' },
+  { key:'my-leave', label:'My Leave Requests', ic:'✎' },
+  { key:'notifications', label:'Notifications', ic:'◔', badge:()=> 1 },
+  { key:'settings', label:'Settings', ic:'⚙' },
+];
+
+function renderShell() {
+  const nav = session.role === 'hod' ? hodNav : facultyNav;
+  const initials = session.name.replace(/^(Dr\.|Prof\.)\s*/,'').split(' ').map(w=>w[0]).slice(0,2).join('');
+  document.getElementById('sidebar').innerHTML = `
+    <div id="sideLinks"></div>
+    <div class="sidebar-bottom">
+      <div class="sidebar-user">
+        <div class="avatar">${initials}</div>
+        <div class="who"><b>${session.name}</b><span>${session.role==='hod' ? 'HOD · '+session.dept : 'Faculty · '+session.dept}</span></div>
+      </div>
+      <button class="sidebar-signout" onclick="signOut()">Sign out →</button>
+    </div>`;
+  buildSideLinks(nav);
+}
+function buildSideLinks(nav) {
+  const zone = document.getElementById('sideLinks');
+  zone.innerHTML = nav.map(item => {
+    const badge = item.badge ? item.badge() : 0;
+    return `<button class="side-link" data-key="${item.key}" onclick="location.hash='#/${item.key}'">
+      <span class="ic">${item.ic}</span>${item.label}${badge ? `<span class="side-badge">${badge}</span>` : ''}
+    </button>`;
+  }).join('');
+}
+function setActiveLink(key) {
+  document.querySelectorAll('.side-link').forEach(el => el.classList.toggle('active', el.dataset.key === key || (key.startsWith('schedule') && el.dataset.key === 'schedule') || (key.startsWith('leave') && el.dataset.key === 'leave') || (key.startsWith('optimize') && el.dataset.key === 'optimize')));
+}
+
+function route() {
+  if (!session) { renderLoginOnly(); return; }
+  const hash = location.hash.replace('#/', '') || (session.role === 'hod' ? 'dashboard' : 'my-schedule');
+  setActiveLink(hash);
+  const [base, sub] = hash.split('/');
+  const routes = {
+    'dashboard': renderDashboard,
+    'schedule': () => sub === 'wizard' ? renderWizard() : sub === 'check' ? renderCheckSchedule() : renderScheduleHub(),
+    'leave': () => sub ? renderLeaveDetail(sub) : renderLeaveList(),
+    'optimize': () => sub ? renderOptimizeDetail(sub) : renderOptimizeList(),
+    'notifications': renderNotifications,
+    'reports': renderReports,
+    'settings': renderSettings,
+    'my-schedule': renderCheckSchedule,
+    'my-leave': renderMyLeave,
+  };
+  (routes[base] || renderDashboard)();
+}
+function renderLoginOnly() {
+  document.getElementById('appShell').classList.remove('active');
+  document.getElementById('authView').style.display = 'flex';
+}
+
+/* =================================================================
+   DASHBOARD (HOD)
+================================================================= */
+function renderDashboard() {
+  const overLimit = faculty.filter(f => f.hours > f.limit).length;
+  const atLimit = faculty.filter(f => f.hours <= f.limit && f.hours >= f.limit - 3).length;
+  const within = faculty.length - overLimit - atLimit;
+  const pendingLeave = leaveRequests.filter(l => l.status === 'Pending').length;
+
+  document.getElementById('main').innerHTML = `
+    <div class="topbar">
+      <div><h1>Good morning, ${session.name.split(' ').pop()} 👋</h1><p>Here's what's happening in ${session.dept}</p></div>
+      <div class="topbar-controls">
+        <select class="select-chip"><option>2024–25</option></select>
+        <select class="select-chip"><option>Odd Semester</option></select>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card"><span class="lbl">Faculty Over Limit</span><span class="val flag">${overLimit}</span><span class="sub">out of ${faculty.length}</span></div>
+      <div class="stat-card"><span class="lbl">Pending Leave Requests</span><span class="val">${pendingLeave}</span><span class="sub">requests</span></div>
+      <div class="stat-card"><span class="lbl">Optimization Requests</span><span class="val">${optimizeRequests.length}</span><span class="sub">pending</span></div>
+      <div class="stat-card"><span class="lbl">Published Version</span><span class="val" style="font-size:1.5rem">v6</span><span class="sub">approved on 12 May</span></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card panel">
+        <h3>Workload Overview<small>Weekly hours</small></h3>
+        <div class="donut-wrap">
+          <div class="donut" style="background:conic-gradient(var(--teal) 0% ${within/faculty.length*100}%, var(--hold) ${within/faculty.length*100}% ${(within+atLimit)/faculty.length*100}%, var(--flag) ${(within+atLimit)/faculty.length*100}% 100%)">
+            <div class="donut" style="width:72px;height:72px;background:var(--ink)"><div class="center"><b>${faculty.length}</b><span>Faculty</span></div></div>
+          </div>
+          <div style="flex:1">
+            <div class="legend-row"><span class="legend-dot" style="background:var(--teal)"></span>Within limit<span class="n">${within} (${Math.round(within/faculty.length*100)}%)</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--hold)"></span>At limit<span class="n">${atLimit} (${Math.round(atLimit/faculty.length*100)}%)</span></div>
+            <div class="legend-row"><span class="legend-dot" style="background:var(--flag)"></span>Over limit<span class="n">${overLimit} (${Math.round(overLimit/faculty.length*100)}%)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card panel">
+        <h3>Workload Distribution<small>Faculty by weekly hours</small></h3>
+        <div class="mini-bars">
+          ${bucketize().map(b => `<div class="mini-col"><div style="font-family:var(--font-mono);font-size:0.68rem">${b.count}</div><div class="mini-bar" style="height:${b.count/Math.max(...bucketize().map(x=>x.count))*90}px;background:${b.color};box-shadow:0 0 14px -6px ${b.color}"></div><div class="lb">${b.label}</div></div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card panel">
+        <h3>Recent Activity</h3>
+        <div class="activity-item"><span class="dot"></span><div>Leave request by Dr. Meera Iyer<div class="time">2 minutes ago</div></div></div>
+        <div class="activity-item"><span class="dot" style="background:var(--hold);box-shadow:0 0 8px 0 var(--hold)"></span><div>Optimization request by Dr. Rahul S<div class="time">18 minutes ago</div></div></div>
+        <div class="activity-item"><span class="dot"></span><div>New schedule version v6 generated<div class="time">1 hour ago</div></div></div>
+        <a href="#/reports" style="display:inline-block;margin-top:0.6rem;font-family:var(--font-mono);font-size:0.68rem;color:var(--teal);text-decoration:none">View all activity →</a>
+      </div>
+    </div>
+  `;
+}
+function bucketize() {
+  const buckets = [ {label:'0-10',min:0,max:10,color:'var(--teal)'}, {label:'10-15',min:10,max:15,color:'var(--teal)'}, {label:'15-20',min:15,max:20,color:'var(--teal)'}, {label:'20-25',min:20,max:25,color:'var(--hold)'}, {label:'25+',min:25,max:999,color:'var(--flag)'} ];
+  return buckets.map(b => ({ label:b.label, color:b.color, count: faculty.filter(f=>f.hours>=b.min && f.hours<b.max).length || 1 }));
+}
+
+/* =================================================================
+   SCHEDULE HUB
+================================================================= */
+function renderScheduleHub() {
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Schedule</h1><p>Generate a new balanced schedule or review what's currently published.</p></div></div>
+    <div class="action-cards">
+      <div class="card action-card" onclick="startWizard()">
+        <div class="ic">✚</div><h3>Generate a new schedule</h3>
+        <p>Upload current assignments, review what LoadBalance found, and let the optimizer propose the smallest set of fixes.</p>
+        <span class="go">Start →</span>
+      </div>
+      <div class="card action-card" onclick="location.hash='#/schedule/check'">
+        <div class="ic">▤</div><h3>Check current schedule</h3>
+        <p>View the published, section-wise weekly timetable for ${session.dept}.</p>
+        <span class="go">Open →</span>
+      </div>
+    </div>
+    <div class="card panel">
+      <h3>Version history</h3>
+      <table>
+        <tr><th>Version</th><th>Status</th><th>Faculty involved</th><th>Sections affected</th><th>Published</th></tr>
+        <tr><td>v6</td><td><span class="pill teal">Live</span></td><td>8</td><td>4</td><td>12 May 2024</td></tr>
+        <tr><td>v5</td><td><span class="pill hold">Archived</span></td><td>6</td><td>3</td><td>02 Apr 2024</td></tr>
+        <tr><td>v4</td><td><span class="pill hold">Archived</span></td><td>5</td><td>2</td><td>19 Feb 2024</td></tr>
+      </table>
+    </div>
+  `;
+}
+function startWizard() { wizard = { step: 1, dept: session.dept, year:'2nd Year', years:['2nd Year'], sections:['A','B','C'], files:[], reqs:[] }; location.hash = '#/schedule/wizard'; }
+
+/* -------- WIZARD -------- */
+const WZ_STEPS = ['Select Scope','Upload Data','Review Extracted Info','Additional Requirements','Generate'];
+function wzStepsHtml() {
+  return `<div class="wizard-steps">${WZ_STEPS.map((s,i)=>{
+    const n=i+1; const cls = n<wizard.step ? 'done' : n===wizard.step ? 'current':'';
+    return `<div class="wz-step ${cls}"><div class="wz-num">${n<wizard.step?'✓':n}</div><div class="wz-label">${s}</div></div>${i<WZ_STEPS.length-1?'<div class="wz-line"></div>':''}`;
+  }).join('')}</div>`;
+}
+function renderWizard() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="topbar"><div><h1>Generate Schedule</h1><p>Step ${wizard.step} of ${WZ_STEPS.length} — ${WZ_STEPS[wizard.step-1]}</p></div></div>
+    ${wzStepsHtml()}
+    <div id="wzBody"></div>
+  `;
+  renderWizardStep();
+}
+function renderWizardStep() {
+  const body = document.getElementById('wzBody');
+  if (wizard.step === 1) {
+    body.innerHTML = `
+      <div class="card wizard-card">
+        <div class="form-grid">
+          <div class="field"><label>Branch</label><select class="chip" style="width:100%;padding:0.7rem"><option>${session.dept}</option></select></div>
+          <div class="field"><label>Academic Year</label><select style="width:100%;padding:0.7rem;background:var(--ink);border:1px solid var(--line);border-radius:4px;color:var(--paper)"><option>2024-25</option></select></div>
+          <div class="field"><label>Semester</label><select style="width:100%;padding:0.7rem;background:var(--ink);border:1px solid var(--line);border-radius:4px;color:var(--paper)"><option>Odd</option><option>Even</option></select></div>
+        </div>
+        <div class="field" style="margin-top:0.6rem"><label>Generate for</label>
+          <div class="chip-row" id="yearChips">
+            ${['1st Year','2nd Year','3rd Year','4th Year','Entire Branch'].map(y=>`<button class="chip ${wizard.year===y?'active':''}" onclick="pickYear('${y}')">${y}</button>`).join('')}
+          </div>
+        </div>
+        <div class="field"><label>Sections (${wizard.year})</label>
+          <div class="chip-row">
+            ${['A','B','C','D'].map(s=>`<button class="chip checkbox ${wizard.sections.includes(s)?'active':''}" onclick="toggleSection('${s}')">${s}</button>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="wizard-foot"><span></span><button class="btn-primary" onclick="wzNext()">Next: Upload Data →</button></div>
+    `;
+  } else if (wizard.step === 2) {
+    body.innerHTML = `
+      <div class="card wizard-card">
+        <div class="dropzone" onclick="mockUpload()">
+          <div class="ic">⇪</div>
+          <p><strong>Drag & drop file here or click to browse</strong></p>
+          <p class="sm">Supported: Excel (.xlsx), CSV (.csv), Images (PNG, JPG) &nbsp;·&nbsp; Max size: 10MB</p>
+        </div>
+        <div id="fileList">${wizard.files.map(f=>`<div class="file-row"><span class="nm">📄 ${f.name}</span><span class="sz">${f.size}</span></div>`).join('')}</div>
+        <p style="margin-top:1rem;font-size:0.78rem;color:var(--paper-dim)">Need help? <a href="#" style="color:var(--teal)" onclick="event.preventDefault()">View sample files</a></p>
+      </div>
+      <div class="wizard-foot"><button class="btn-ghost" onclick="wzBack()">← Back</button><button class="btn-primary" onclick="wzNext()" ${wizard.files.length?'':'disabled'}>Next: Review Extracted Info →</button></div>
+    `;
+  } else if (wizard.step === 3) {
+    body.innerHTML = `
+      <div class="card wizard-card">
+        <div class="pill teal" style="margin-bottom:1.2rem">✓ Extraction completed successfully</div>
+        <div class="kv-grid">
+          <div><div class="k">Branch</div><div class="v">${wizard.dept}</div></div>
+          <div><div class="k">Academic Year</div><div class="v">2024-25</div></div>
+          <div><div class="k">Semester</div><div class="v">Odd</div></div>
+          <div><div class="k">Years Found</div><div class="v">1, 2, 3, 4</div></div>
+          <div><div class="k">Sections Found</div><div class="v">A, B, C, D</div></div>
+          <div><div class="k">Courses Found</div><div class="v">28</div></div>
+          <div><div class="k">Faculty Found</div><div class="v">${faculty.length}</div></div>
+          <div><div class="k">Rooms Found</div><div class="v">18 (4 Labs)</div></div>
+          <div><div class="k">Time Slots</div><div class="v">8:00 AM – 5:00 PM</div></div>
+        </div>
+        <p style="margin-top:1.2rem;font-size:0.78rem;color:var(--paper-dim)">Some information may be missing. You can add it in the next step.</p>
+      </div>
+      <div class="wizard-foot"><button class="btn-ghost" onclick="wzBack()">← Back</button><button class="btn-primary" onclick="wzNext()">Next: Add Requirements →</button></div>
+    `;
+  } else if (wizard.step === 4) {
+    body.innerHTML = `
+      <div class="card wizard-card">
+        <div class="auth-tabs" style="margin-bottom:1.2rem"><button class="active">Quick Add</button><button>Natural Language</button></div>
+        <div class="field"><label>Type your additional constraints — AI converts them into structured rules</label>
+          <textarea class="field-textarea" id="reqText" placeholder="e.g. Every section should have one library period per week...">- Every section should have one library period per week
+- Library should preferably be in the last period
+- Sports should be once per week, must be the last period
+- Dr. Ravi is unavailable on Monday 1st to 3rd periods
+- No faculty should have more than 2 consecutive labs</textarea>
+        </div>
+        <button class="btn-ghost" onclick="parseReqs()">Parse with AI ✨</button>
+        <div id="parsedZone" style="margin-top:1rem">${wizard.reqs.length ? renderParsedTable() : ''}</div>
+      </div>
+      <div class="wizard-foot"><button class="btn-ghost" onclick="wzBack()">← Back</button><button class="btn-primary" onclick="wzNext()">Next: Generate →</button></div>
+    `;
+  } else if (wizard.step === 5) {
+    body.innerHTML = wizard.generated ? renderGenResult() : `
+      <div class="card wizard-card" style="text-align:center;padding:3.4rem 2rem">
+        <div class="ic" style="font-size:2.1rem;margin-bottom:1rem;color:var(--teal)">⚙</div>
+        <h3 style="font-family:var(--font-display);margin-bottom:0.6rem">Ready to generate</h3>
+        <p style="color:var(--paper-dim);max-width:46ch;margin:0 auto 1.6rem">The optimizer will use your current assignments, ${wizard.reqs.length || 5} parsed requirements, and each faculty member's weekly cap to propose the smallest set of changes.</p>
+        <button class="btn-primary" onclick="runGenerate()">Confirm & Generate →</button>
+      </div>
+      <div class="wizard-foot"><button class="btn-ghost" onclick="wzBack()">← Back</button><span></span></div>
+    `;
+  }
+}
+function pickYear(y) { wizard.year = y; renderWizardStep(); }
+function toggleSection(s) { const i = wizard.sections.indexOf(s); if (i>-1) wizard.sections.splice(i,1); else wizard.sections.push(s); renderWizardStep(); }
+function mockUpload() {
+  const names = [ {name:'faculty_assignments.xlsx', size:'18 KB'}, {name:'courses_list.csv', size:'6 KB'}, {name:'existing_timetable.jpg', size:'245 KB'} ];
+  const next = names[wizard.files.length % names.length];
+  wizard.files.push(next);
+  renderWizardStep();
+  toast('Uploaded ' + next.name);
+}
+function parseReqs() {
+  wizard.reqs = [
+    { type:'Library Period', applies:'All Sections (2nd Year)', req:'1 period per week', priority:'Preferred' },
+    { type:'Library Timing', applies:'All Sections (2nd Year)', req:'Preferably in last period', priority:'Preferred' },
+    { type:'Sports Period', applies:'All Sections (2nd Year)', req:'Once per week, must be last period', priority:'Must' },
+    { type:'Faculty Unavailability', applies:'Dr. Ravi', req:'Monday periods 1 to 3', priority:'Must' },
+    { type:'Lab Constraint', applies:'All Sections (2nd Year)', req:'No more than 2 consecutive labs', priority:'Preferred' },
+  ];
+  document.getElementById('parsedZone').innerHTML = renderParsedTable();
+  toast('Parsed 5 requirements');
+}
+function renderParsedTable() {
+  return `<table><tr><th>Type</th><th>Applies to</th><th>Requirement</th><th>Priority</th></tr>
+    ${wizard.reqs.map(r=>`<tr><td>${r.type}</td><td>${r.applies}</td><td>${r.req}</td><td><span class="pill ${r.priority==='Must'?'flag':'hold'}">${r.priority}</span></td></tr>`).join('')}</table>`;
+}
+function runGenerate() {
+  wizard.generated = true;
+  renderWizardStep();
+  toast('Schedule v7 generated');
+}
+function renderGenResult() {
+  return `
+    <div class="card wizard-card">
+      <div class="pill hold" style="margin-bottom:1.2rem">Proposed Version: v7</div>
+      <div class="stat-grid" style="margin-bottom:1.4rem">
+        <div class="stat-card"><span class="lbl">Hard Constraint Violations</span><span class="val">0</span></div>
+        <div class="stat-card"><span class="lbl">Faculty Clashes</span><span class="val">0</span></div>
+        <div class="stat-card"><span class="lbl">Section Clashes</span><span class="val">0</span></div>
+        <div class="stat-card"><span class="lbl">Room Clashes</span><span class="val">0</span></div>
+      </div>
+      <div class="grid-2" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:0">
+        <div class="panel" style="padding:0"><h3>Constraint Status</h3><p style="font-size:0.83rem">Mandatory Satisfied<br><span class="pill teal">All good</span></p><p style="font-size:0.83rem;margin-top:0.8rem">Preferred Satisfied<br><span class="pill hold">87% (13 not met)</span></p></div>
+        <div class="panel" style="padding:0"><h3>Workload Summary</h3><p style="font-size:0.83rem">Over Limit<br><span class="pill flag">3 faculty</span></p><p style="font-size:0.83rem;margin-top:0.8rem">Within Limit<br><span class="pill teal">23 faculty</span></p></div>
+        <div class="panel" style="padding:0"><h3>Optimization Summary</h3><p style="font-size:0.83rem">Changes Made: <b>12</b></p><p style="font-size:0.83rem">Faculty Involved: <b>8</b></p><p style="font-size:0.83rem">Sections Affected: <b>4</b></p></div>
+      </div>
+    </div>
+    <div class="wizard-foot">
+      <div style="display:flex;gap:0.6rem"><button class="btn-ghost" onclick="location.hash='#/schedule/check'">View Schedule</button><button class="btn-ghost" onclick="location.hash='#/optimize'">View Conflicts</button></div>
+      <div style="display:flex;gap:0.6rem"><button class="btn-ghost" onclick="wizard.generated=false;renderWizardStep()">Regenerate</button><button class="btn-primary" onclick="publishSchedule()">Approve & Publish v7</button></div>
+    </div>
+  `;
+}
+function publishSchedule() { toast('v7 published — faculty notified'); location.hash = '#/schedule'; }
+function wzNext() { if (wizard.step < WZ_STEPS.length) { wizard.step++; renderWizard(); } }
+function wzBack() { if (wizard.step > 1) { wizard.step--; renderWizard(); } else { location.hash = '#/schedule'; } }
+
+/* -------- CHECK SCHEDULE -------- */
+function renderCheckSchedule() {
+  const isFaculty = session.role === 'faculty';
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>${isFaculty ? 'My Schedule' : 'Check Schedule — Section Wise'}</h1><p>${isFaculty ? 'Your published weekly timetable' : 'Published v6 · '+session.dept}</p></div>
+    <div class="topbar-controls">
+      <select class="select-chip"><option>2nd Year</option></select>
+      ${isFaculty ? '' : '<select class="select-chip"><option>2nd Year - A</option><option>2nd Year - B</option><option>2nd Year - C</option></select>'}
+    </div></div>
+    <div class="card panel" style="overflow-x:auto">
+      <table>
+        <tr><th>Time</th>${timetable.days.map(d=>`<th class="center">${d}</th>`).join('')}</tr>
+        ${timetable.slots.map((slot,i)=>`<tr><td style="font-family:var(--font-mono);font-size:0.72rem;white-space:nowrap">${slot}</td>${timetable.grid[i].map(cell=>`<td class="center">${cellHtml(cell)}</td>`).join('')}</tr>`).join('')}
+      </table>
+    </div>
+  `;
+}
+function cellHtml(cell) {
+  if (cell === 'BREAK') return `<span class="tt-cell" style="opacity:0.5">Break</span>`;
+  if (cell === 'Free') return `<span class="tt-cell free">Free</span>`;
+  if (/Lab/.test(cell)) return `<span class="tt-cell lab">${cell}</span>`;
+  if (['Sports','Library','Mentoring'].includes(cell)) return `<span class="tt-cell hold" style="background:var(--hold-dim);color:var(--hold)">${cell}</span>`;
+  return `<span class="tt-cell busy">${cell}</span>`;
+}
+
+/* =================================================================
+   LEAVE REQUESTS
+================================================================= */
+let leaveFilter = 'All';
+function renderLeaveList() {
+  const filtered = leaveFilter === 'All' ? leaveRequests : leaveRequests.filter(l => leaveFilter === 'Mandatory' ? l.type==='Mandatory' : leaveFilter === 'Normal' ? l.type==='Normal' : l.status===leaveFilter);
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Leave Requests</h1><p>Review and act on faculty leave requests for ${session.dept}</p></div></div>
+    <div class="list-tabs">
+      ${['All','Mandatory','Normal','Approved','Pending','Rejected'].map(t=>`<button class="${leaveFilter===t?'active':''}" onclick="setLeaveFilter('${t}')">${t}</button>`).join('')}
+    </div>
+    <div class="card panel">
+      <table>
+        <tr><th>Faculty</th><th>Type</th><th>From</th><th>To</th><th class="center">Days</th><th class="center">Classes</th><th>Status</th><th></th></tr>
+        ${filtered.map(l=>`<tr>
+          <td>${l.faculty}</td><td>${l.type}</td><td>${l.from}</td><td>${l.to}</td>
+          <td class="center">${l.days}</td><td class="center">${l.classes}</td>
+          <td><span class="pill ${l.status==='Approved'?'teal':l.status==='Rejected'?'flag':'hold'}">${l.status}</span></td>
+          <td><button class="btn-ghost btn-sm" onclick="location.hash='#/leave/${l.id}'">Review</button></td>
+        </tr>`).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--paper-dim);padding:2rem">No requests in this view.</td></tr>`}
+      </table>
+    </div>
+  `;
+}
+function setLeaveFilter(t) { leaveFilter = t; renderLeaveList(); }
+
+function renderLeaveDetail(id) {
+  const l = leaveRequests.find(x => String(x.id) === String(id));
+  if (!l) { location.hash = '#/leave'; return; }
+  document.getElementById('main').innerHTML = `
+    <button class="detail-back" onclick="location.hash='#/leave'">← Back to Requests</button>
+    <div class="topbar"><div><h1>Leave Request — Impact & AI Assistant</h1></div></div>
+    <div class="detail-grid">
+      <div class="card panel">
+        <h3>Request Details</h3>
+        <div class="kv-grid" style="margin-bottom:1.4rem">
+          <div><div class="k">Faculty</div><div class="v">${l.faculty}</div></div>
+          <div><div class="k">Type</div><div class="v">${l.type} Leave</div></div>
+          <div><div class="k">From – To</div><div class="v">${l.from} to ${l.to}</div></div>
+          <div><div class="k">Total Days</div><div class="v">${l.days}</div></div>
+          <div><div class="k">Affected Classes</div><div class="v">${l.classes} classes</div></div>
+        </div>
+        <div class="pill teal" style="margin-bottom:1rem">✓ Analysis complete</div>
+        <p style="font-size:0.86rem;color:var(--paper-dim);line-height:1.6;margin-bottom:1rem">We can adjust the schedule with minimal changes.</p>
+        <h3 style="font-size:0.86rem">Suggested Actions</h3>
+        <div class="impact-row"><span>Reschedule ${Math.max(1,l.classes-2)} classes to free periods</span></div>
+        <div class="impact-row"><span>Reassign ${Math.min(2,l.classes)} classes to Prof. N</span></div>
+        <div class="impact-row"><span>No additional workload for other faculty</span></div>
+        <h3 style="font-size:0.86rem;margin-top:1.2rem">Impact Summary</h3>
+        <div class="impact-row"><span>Extra workload to others</span><b>+2 hours</b></div>
+        <div class="impact-row"><span>Preferred constraints affected</span><b>1</b></div>
+        <button class="btn-ghost btn-sm" style="margin-top:1rem" onclick="toast('Simulation details opened')">View Simulation Details</button>
+      </div>
+      <div class="card panel">
+        <h3>Recommend Action</h3>
+        <label class="radio-opt"><input type="radio" name="act" checked><span><b>Approve</b> (with adjustments)</span></label>
+        <label class="radio-opt"><input type="radio" name="act"><span><b>Approve</b> (manual adjustments)</span></label>
+        <label class="radio-opt"><input type="radio" name="act"><span><b>Reject</b></span></label>
+        <label class="radio-opt"><input type="radio" name="act"><span>Ask for more details</span></label>
+        <div class="field" style="margin-top:0.8rem"><label>Notes (optional)</label><textarea class="field-textarea" placeholder="Add any notes..."></textarea></div>
+        <div style="display:flex;gap:0.6rem;margin-top:1rem">
+          <button class="btn-ghost" style="flex:1" onclick="setLeaveStatus(${l.id},'Rejected')">Reject</button>
+          <button class="btn-primary" style="flex:1" onclick="setLeaveStatus(${l.id},'Approved')">Approve Request</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function setLeaveStatus(id, status) {
+  const l = leaveRequests.find(x => x.id === id);
+  if (l) l.status = status;
+  toast('Request ' + status.toLowerCase());
+  location.hash = '#/leave';
+}
+function renderMyLeave() {
+  const mine = leaveRequests.slice(0,3);
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>My Leave Requests</h1><p>Your submitted requests and their status</p></div>
+      <button class="btn-primary" onclick="submitFakeLeave()">+ New Leave Request</button></div>
+    <div class="card panel">
+      <table>
+        <tr><th>Type</th><th>From</th><th>To</th><th class="center">Days</th><th>Status</th></tr>
+        ${mine.map(l=>`<tr><td>${l.type}</td><td>${l.from}</td><td>${l.to}</td><td class="center">${l.days}</td><td><span class="pill ${l.status==='Approved'?'teal':l.status==='Rejected'?'flag':'hold'}">${l.status}</span></td></tr>`).join('')}
+      </table>
+    </div>
+  `;
+}
+function submitFakeLeave() {
+  leaveRequests.unshift({ id: Date.now(), faculty: session.name, type:'Normal', from:'02 Jul 2024', to:'03 Jul 2024', days:2, classes:3, status:'Pending' });
+  toast('Leave request submitted');
+  renderMyLeave();
+}
+
+/* =================================================================
+   OPTIMIZE REQUESTS
+================================================================= */
+function renderOptimizeList() {
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Requests to Optimize</h1><p>Faculty-submitted workload optimization requests</p></div></div>
+    <div class="card panel">
+      <table>
+        <tr><th>Faculty</th><th>Reason</th><th>Requested On</th><th class="center">Current (hrs)</th><th class="center">Proposed (hrs)</th><th></th></tr>
+        ${optimizeRequests.map(o=>`<tr>
+          <td>${o.faculty}</td><td>${o.reason}</td><td>${o.requestedOn}</td>
+          <td class="center">${o.current}</td><td class="center">${o.proposed}</td>
+          <td><button class="btn-ghost btn-sm" onclick="location.hash='#/optimize/${o.id}'">Review</button></td>
+        </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--paper-dim);padding:2rem">No pending requests.</td></tr>`}
+      </table>
+    </div>
+  `;
+}
+function renderOptimizeDetail(id) {
+  const o = optimizeRequests.find(x => String(x.id) === String(id));
+  if (!o) { location.hash = '#/optimize'; return; }
+  const change = o.proposed - o.current;
+  document.getElementById('main').innerHTML = `
+    <button class="detail-back" onclick="location.hash='#/optimize'">← Back to Requests</button>
+    <div class="topbar"><div><h1>Requests to Optimize — Current vs Proposed</h1></div></div>
+    <div class="detail-grid">
+      <div class="card panel">
+        <h3>Request Details</h3>
+        <div class="kv-grid">
+          <div><div class="k">Requested By</div><div class="v">${o.faculty}</div></div>
+          <div><div class="k">Request Type</div><div class="v">Workload Imbalance</div></div>
+          <div><div class="k">Requested On</div><div class="v">${o.requestedOn}</div></div>
+        </div>
+        <p style="font-size:0.84rem;color:var(--paper-dim);margin-top:1rem;line-height:1.6">My workload is ${o.current} hours while others are below limit. Please rebalance if possible.</p>
+        <h3 style="margin-top:1.2rem">AI Analysis</h3>
+        <button class="btn-ghost btn-sm" onclick="toast('Analysis expanded')">View Analysis →</button>
+      </div>
+      <div class="card panel">
+        <div class="auth-tabs" style="margin-bottom:1rem"><button>Current Schedule</button><button class="active">Proposed Schedule (v7)</button></div>
+        <table>
+          <tr><th>Faculty</th><th class="center">Current (hrs)</th><th class="center">Proposed (hrs)</th><th class="center">Change</th></tr>
+          <tr><td><b>${o.faculty}</b></td><td class="center">${o.current}</td><td class="center">${o.proposed}</td><td class="center" style="color:${change<0?'var(--teal)':'var(--flag)'}">${change>0?'+':''}${change}</td></tr>
+          <tr><td>Others (avg)</td><td class="center">—</td><td class="center">—</td><td class="center" style="color:var(--paper-dim)">${o.others}</td></tr>
+        </table>
+        <h3 style="margin-top:1.2rem">Optimization Summary</h3>
+        <div class="impact-row"><span>Hard constraints</span><span class="pill teal">Satisfied</span></div>
+        <div class="impact-row"><span>Total changes</span><b>9</b></div>
+        <div class="impact-row"><span>Faculty involved</span><b>3</b></div>
+        <div class="impact-row"><span>Sections affected</span><b>2</b></div>
+        <div style="display:flex;gap:0.6rem;margin-top:1.2rem">
+          <button class="btn-ghost" style="flex:1" onclick="toast('Reverted to current schedule')">Revert</button>
+          <button class="btn-ghost" style="flex:1" onclick="toast('Regenerating proposal…')">Regenerate</button>
+          <button class="btn-primary" style="flex:1" onclick="approveOptimize(${o.id})">Approve & Publish v7</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+function approveOptimize(id) {
+  optimizeRequests = optimizeRequests.filter(o => o.id !== id);
+  toast('Published v7 — faculty notified');
+  location.hash = '#/optimize';
+}
+
+/* =================================================================
+   SIMPLE PAGES
+================================================================= */
+function renderNotifications() {
+  const items = [
+    { t:'Leave request from Dr. Meera Iyer needs review', time:'2 min ago' },
+    { t:'Optimization request from Dr. Rahul S', time:'18 min ago' },
+    { t:'Schedule v6 was approved and published', time:'1 hour ago' },
+  ];
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Notifications</h1><p>Everything that needs your attention</p></div></div>
+    <div class="card panel">${items.map(i=>`<div class="activity-item"><span class="dot"></span><div>${i.t}<div class="time">${i.time}</div></div></div>`).join('')}</div>
+  `;
+}
+function renderReports() {
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Reports</h1><p>Department workload &amp; publishing history</p></div></div>
+    <div class="stat-grid">
+      <div class="stat-card"><span class="lbl">Avg. weekly load</span><span class="val">19.4h</span></div>
+      <div class="stat-card"><span class="lbl">Schedules published</span><span class="val">6</span></div>
+      <div class="stat-card"><span class="lbl">Avg. changes / version</span><span class="val">9</span></div>
+      <div class="stat-card"><span class="lbl">Leave approval rate</span><span class="val">82%</span></div>
+    </div>
+    <div class="card panel"><h3>Faculty workload</h3><table><tr><th>Faculty</th><th class="center">Hours</th><th class="center">Limit</th><th>Status</th></tr>
+      ${faculty.map(f=>`<tr><td>${f.name}</td><td class="center">${f.hours}h</td><td class="center">${f.limit}h</td><td>${f.hours>f.limit?'<span class="pill flag">Over</span>':f.hours>=f.limit-3?'<span class="pill hold">At limit</span>':'<span class="pill teal">Within</span>'}</td></tr>`).join('')}
+    </table></div>
+  `;
+}
+function renderSettings() {
+  document.getElementById('main').innerHTML = `
+    <div class="topbar"><div><h1>Settings</h1><p>Account and department preferences</p></div></div>
+    <div class="card panel" style="max-width:520px">
+      <div class="field"><label>Name</label><input value="${session.name}"></div>
+      <div class="field"><label>Department</label><input value="${session.dept}" disabled></div>
+      ${session.role==='hod' ? `<div class="field"><label>Department access code</label><input value="${genCode || 'CS-4471'}" disabled><div class="field-hint">Share this out-of-app with faculty so they can self-register into ${session.dept}.</div></div>` : ''}
+      <button class="btn-primary" onclick="toast('Settings saved')">Save changes</button>
+    </div>
+    ${isDemo ? `<div class="card panel" style="max-width:520px;margin-top:1.2rem">
+      <h3>Demo mode</h3>
+      <p style="font-size:0.85rem;color:var(--paper-dim);margin-bottom:1rem">You're viewing sample data. Approvals, rejections, and publishes only affect this session.</p>
+      <button class="btn-ghost" onclick="resetDemo()">↺ Reset demo data</button>
+    </div>` : ''}
+  `;
+}
+
+/* =================================================================
+   INIT
+================================================================= */
+renderAuthForm();
+window.addEventListener('hashchange', () => { if (!session) return; route(); });
+route();
+</script>
+</body>
+</html>
